@@ -39,7 +39,7 @@ $(document).ready(function(){
 	
 	//// Junk that you should skip over until we actually use... (skip until the next //// comment)
 	var IndicateFailure = function(errMsg) {
-		Map.panTo(40.760131, -73.986568);
+		Map.panTo(new google.maps.LatLng(40.760131, -73.986568));
 	
 		$("#optional-geolocation-error-goes-here").css("display", "block");
 		$("#optional-geolocation-error-goes-here").text(errMsg + " So by default I'm setting the map's location to New York.");
@@ -51,7 +51,7 @@ $(document).ready(function(){
 		// First, set up singletons as we see fit.
 		// discovu.js will expect these.
 		Manager = new MapManager(50, Map);
-		Dispenser = new EventDispenser(Manager, 1, [["twitter", 1]]);
+		Dispenser = new EventDispenser(Manager, 500);
 		TDS = new TwitterDataSource();
 
 		// Now set up code that knows when to fetch new data and update the map.

@@ -58,34 +58,40 @@ function MapManager(maxItems, mapObject) {
 	}	
 }
 
-// Given a set interval, categories of events and the distribution in whicht they'll be presented to
-// a paried MapManager, and the actual events (online, though),
-// set a worker thread to dispensing these events out at the given interval in the given distributions
-// to the paired MapManager.
-
-// (Why not make categories updatable online as well? Because either everything must be updated online
-// or nothing, and frankly having none is easier to implement right now.)
-
-// Remember to explicitly destruct() when you're done so we can clean up the web worker!
-function EventDispenser(pairedMM, dispenseIntervalSecs, categoryDistribParis) {
+// A ratelimiter that stands between data sources and the actual map.
+// Remember to explicitly destruct() when you're done so we can clean up the timer!
+function EventDispenser(pairedMM, dispenseIntervalMs) {
+	// STUB: we ignore categories and their distributions.
+	
+	// Have a background interval timer constantly do the actual pushing.
+	var pipeline = new Array(); // why is pipeline a var? because js' esoteric "this" rules make this.pipeline undefined when we need it the most.
+	this.pipelineConsumer = function() {
+		var currentEvent = pipeline.shift();
+		if(currentEvent) {
+			pairedMM.pushEvent(currentEvent);
+		}
+	};
+	this.pipelineConsumerInterval = setInterval(this.pipelineConsumer, dispenseIntervalMs);
 	// in the future, timer should response to "set" messages as well.
 
-	// Dumb implementation: just hand the events over as they're recieved to the MapManager right now.
-	this.pushEvents = function(category, arrayOfEvents) {
-	
+	this.pushEvents = function(arrayOfEvents) {
 		_.each(arrayOfEvents, function(event) {
-			console.log(event);
+			pipeline.push(event);
+		})
+		/*
+		_.each(arrayOfEvents, function(event) {
 			pairedMM.pushEvent(event);
 		})
+		*/
 	};
 	
 	// Push a failure notification to the "notification FIFO" of the map display.
-	this.pushFailure = function(category, errorMessage) {
+	this.pushFailure = function(errorMessage) {
 		// Well, noop actually.
 	}
 	
 	this.destruct = function() {
-	
+		clearInterval(this.pipelineConsumerInterval);
 	};
 }
 
@@ -119,7 +125,7 @@ function TwitterDataSource() {
 				}
 				
 				// Shove the ones that don't need geocoding in first.
-				contEventDispenser.pushEvents("twitter",
+				contEventDispenser.pushEvents(
 					_.map(noGeocodingRequired, function(result) {
 						return new TwitterEvent(result, new google.maps.LatLng(result.geo.coordinates[0], result.geo.coordinates[1]));
 					})
@@ -136,7 +142,7 @@ function TwitterDataSource() {
 						SharedGeocoder.geocode({address: toGeocode.location}, function(results, status) {
 							if(status == google.maps.GeocoderStatus.OK) {
 								var calculatedLatLng = results[0].geometry.location;
-								contEventDispenser.pushEvents("twitter", [new TwitterEvent(toGeocode, calculatedLatLng)]);
+								contEventDispenser.pushEvents([new TwitterEvent(toGeocode, calculatedLatLng)]);
 							}
 							setTimeout(function() {
 								recurse(_.rest(geocodables));
@@ -165,7 +171,7 @@ function TwitterDataSource() {
 						errorMessage = "This website's code fouled up in the skunkworks. Get a dev and ask him to blame JQuery!";
 						break;
 				}
-				contEventDispenser.pushFailure("twitter", errorMessage);
+				contEventDispenser.pushFailure(errorMessage);
 			}
 		});
 	};
