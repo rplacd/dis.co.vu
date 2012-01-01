@@ -1,0 +1,124 @@
+<!doctype html>
+
+<html>
+
+<head>
+	<meta name="viewport" content="initial-scale=1.0" />
+
+	<link rel="stylesheet" type="text/css" href="discovu.css" /> 
+	<script type="text/javascript"
+		src="http://maps.googleapis.com/maps/api/js?key=AIzaSyDUAfpf-Cx_aZpCVfPb4n61AY-YQRbx_1k&libraries=geometry&sensor=false">
+	</script>
+	<script type="text/javascript"
+		src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js">
+	</script>
+	<script type="text/javascript"
+		src="http://documentcloud.github.com/underscore/underscore-min.js">
+	</script>
+	<script type="text/javascript"
+		src="infobox.js">
+	</script>
+	<script type="text/javascript"
+		src="discovu.js">
+	</script>
+	
+	<script type="text/javascript">
+$(document).ready(function(){
+    var latlng = new google.maps.LatLng(40.760131, -73.986568);
+	
+	// Set up the initial state of the google map
+    var myOptions = {
+      zoom: 8,
+      center: latlng,
+	  disableDefaultUI: true,
+      mapTypeId: google.maps.MapTypeId.ROADMAP
+    };
+    Map = new google.maps.Map(document.getElementById("map_canvas"),
+        myOptions);
+		
+	
+	//// Junk that you should skip over until we actually use... (skip until the next //// comment)
+	var IndicateFailure = function(errMsg) {
+		Map.panTo(40.760131, -73.986568);
+	
+		$("#optional-geolocation-error-goes-here").css("display", "block");
+		$("#optional-geolocation-error-goes-here").text(errMsg + " So by default I'm setting the map's location to New York.");
+		$("<hr>").prependTo("#optional-geolocation-error-goes-here");
+	};
+	var EitherWay = function() {
+		// Either way, set the app logic up.
+		
+		// First, set up singletons as we see fit.
+		// discovu.js will expect these.
+		Manager = new MapManager(50, Map);
+		Dispenser = new EventDispenser(Manager, 1, [["twitter", 1]]);
+		TDS = new TwitterDataSource();
+
+		// Now set up code that knows when to fetch new data and update the map.
+		var currentTimeout;
+		var heavyLifting = function() {
+			// ...heavy lifting goes here...
+			TDS.huntEventsForBounds(Map.getBounds(), Dispenser);
+		};
+		// add a listener - when the map changes bounds...
+		google.maps.event.addListener(Map, 'idle', function() {
+			clearTimeout(currentTimeout);
+			// ...first, hesitate! Set a global timeout for 1 second that starts hunting for data.
+			currentTimeout = setTimeout(function(){		
+				var recurse = function() {
+					heavyLifting();
+					currentTimeout = setTimeout(recurse, 10000);
+				}
+				
+				heavyLifting();
+				// and when we're done with that, repeat every 10 seconds by resetting the timer
+				// until manual intervention starts this loop all over again.
+				currentTimeout = setTimeout(recurse, 10000);
+			},
+			2000);
+		});
+	};
+	//// Now start reading again.
+	
+	// Alright, now there are two ways we can get to a stable initial state: with geolocation,
+	// and without. Why? Because geolocation's asynchronous so we gotta fork here whether we like it or not.
+	// All we do if we succeed is set the initial state of the map.
+	if(navigator.geolocation) {
+		navigator.geolocation.getCurrentPosition(function(position){
+			Map.panTo(new google.maps.LatLng(position.coords.latitude, position.coords.longitude));
+			EitherWay();		
+		}, function(error) {
+			var messages = { 
+				1: 'You denied your browser permission to use geolocation.',
+				2: 'Your device couldn\'t geolocate you.',
+				3: 'Your device couldn\'t geolocate you in time.'
+			};
+			IndicateFailure(messages[error.code]);
+			EitherWay();
+		}, {
+			enableHighAccuracy: true,
+			timeout: 10000,
+			maximumAge: 0
+		});
+	} else {
+		IndicateFailure("Your browser doesn't support standard geolocation features.");
+		EitherWay();
+	}
+	
+	// Anyway, real live code stops here.
+ });
+</script>
+</head>
+
+<body>	
+	<div class="mui-container">
+		what's happening around you?
+		<div id="optional-geolocation-error-goes-here" style="display: none;">
+			<hr />
+		</div>
+	</div>
+	
+	<div id="map_canvas" style="position: absolute; left: 0; top: 0; width:100%; height:100%"></div>
+</body>
+
+</html>
