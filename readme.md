@@ -7,3 +7,7 @@ You'll need to stash a copy of the Google Maps Utility Library's infobox.js in t
 ## Licensing
 
 Public domain. God knows anyone would want to use my code anyway.
+
+## Attributions
+
+Uses underscore.js (<3), the GMaps API, and infobox.js from the GMaps Utilities. I bundle infobox.js locally - it uses the Apache license.
